@@ -1,0 +1,58 @@
+
+
+**`notebooks/Cirrus_Analysis.ipynb`** content:
+
+```python
+# 1. Import libraries
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# 2. Load CSV
+df = pd.read_csv("../data/Faisalabad_Monthly_Cloud_Anomaly.csv")
+df = df[['year','month','mean_anomaly']].rename(columns={'mean_anomaly':'cirrus_anomaly'})
+df['year'] = df['year'].astype(int)
+df['month'] = df['month'].astype(int)
+
+# 3. Split pre- and post-COVID
+pre_covid = df[df['year']==2019]
+post_covid = df[df['year']>=2020]
+
+# 4. Monthly averages
+pre_monthly = pre_covid.groupby('month')['cirrus_anomaly'].mean()
+post_monthly = post_covid.groupby('month')['cirrus_anomaly'].mean()
+
+# 5. Plot monthly anomalies
+plt.figure(figsize=(10,6))
+plt.plot(pre_monthly.index, pre_monthly.values, marker='o', label='Pre-COVID (2019)')
+plt.plot(post_monthly.index, post_monthly.values, marker='s', label='Post-COVID (2020-2024)')
+plt.xlabel('Month')
+plt.ylabel('Mean Cirrus Anomaly')
+plt.title('Monthly Cirrus Anomaly in Faisalabad')
+plt.xticks(range(1,13))
+plt.grid(True)
+plt.legend()
+plt.savefig('../figures/monthly_anomalies.png')
+plt.show()
+
+# 6. Seasonal analysis
+def season(month):
+    if month in [12,1,2]: return 'Winter'
+    if month in [3,4,5]: return 'Spring'
+    if month in [6,7,8]: return 'Summer'
+    return 'Autumn'
+
+df['season'] = df['month'].apply(season)
+seasonal_pre = pre_covid.groupby('season')['cirrus_anomaly'].mean()
+seasonal_post = post_covid.groupby('season')['cirrus_anomaly'].mean()
+
+# Plot seasonal changes
+seasons = ['Winter','Spring','Summer','Autumn']
+plt.figure(figsize=(8,5))
+plt.plot(seasons, seasonal_pre[seasons], marker='o', label='Pre-COVID (2019)')
+plt.plot(seasons, seasonal_post[seasons], marker='s', label='Post-COVID (2020-2024)')
+plt.ylabel('Mean Cirrus Anomaly')
+plt.title('Seasonal Cirrus Anomaly Comparison')
+plt.grid(True)
+plt.legend()
+plt.savefig('../figures/seasonal_anomalies.png')
+plt.show()

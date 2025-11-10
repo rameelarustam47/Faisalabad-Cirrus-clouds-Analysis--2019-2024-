@@ -1,0 +1,89 @@
+// ============================================
+// 1️⃣ Load Faisalabad boundary
+// ============================================
+var districts = ee.FeatureCollection('projects/ee-usman47/assets/gadm41_PAK_2');
+var fsd = districts.filter(ee.Filter.eq('NAME_2', 'Faisalabad'));
+var region = fsd.geometry();
+Map.centerObject(fsd, 8);
+Map.addLayer(fsd, {color: 'blue'}, 'Faisalabad');
+
+// ============================================
+// 2️⃣ Function: Compute yearly mean cloud probability
+// ============================================
+function getYearlyCloud(year) {
+  var start = ee.Date.fromYMD(year, 1, 1);
+  var end = start.advance(1, 'year');
+  
+  var clouds = ee.ImageCollection('COPERNICUS/S2_CLOUD_PROBABILITY')
+    .filterBounds(region)
+    .filterDate(start, end);
+  
+  var meanCloud = clouds.mean()
+    .clip(region)
+    .set('system:time_start', start.millis())
+    .set('year', year);
+  
+  return meanCloud;
+}
+
+// Create yearly images 2019–2024
+var years = ee.List.sequence(2019, 2024);
+var yearlyClouds = ee.ImageCollection(years.map(function(y) {
+  return getYearlyCloud(y);
+}));
+
+// ============================================
+// 3️⃣ Compute mean of all years (baseline)
+// ============================================
+var allMean = yearlyClouds.mean();
+
+// Compute anomaly for each year (difference from mean)
+var anomalyCollection = yearlyClouds.map(function(img) {
+  return img.subtract(allMean)
+            .set('system:time_start', img.get('system:time_start'))
+            .set('year', img.get('year'));
+});
+
+// ============================================
+// 4️⃣ Compute mean anomaly per year over Faisalabad
+// ============================================
+function getYearlyStats(image) {
+  var meanDict = image.reduceRegion({
+    reducer: ee.Reducer.mean(),
+    geometry: region,
+    scale: 10,   // Sentinel-2 resolution
+    maxPixels: 1e9
+  });
+  
+  return ee.Feature(null, {
+    'year': image.get('year'),
+    'mean_anomaly': meanDict.get('constant')
+  });
+}
+
+var yearlyStats = anomalyCollection.map(getYearlyStats);
+
+// ============================================
+// 5️⃣ Chart yearly anomalies
+// ============================================
+var chart = ui.Chart.feature.byFeature(yearlyStats, 'year', 'mean_anomaly')
+  .setOptions({
+    title: 'Yearly Cloud Probability Anomaly (Faisalabad)',
+    hAxis: {title: 'Year'},
+    vAxis: {title: 'Mean Cloud Anomaly (%)'},
+    lineWidth: 2,
+    pointSize: 5
+  });
+
+print(chart);
+
+// ============================================
+// 6️⃣ Export CSV
+// ============================================
+Export.table.toDrive({
+  collection: yearlyStats,
+  description: 'Faisalabad_Cloud_Anomaly_Stats',
+  fileFormat: 'CSV'
+});
+
+print('✅ Chart displayed and CSV ready to export.');
