@@ -1,4 +1,3 @@
-# Faisalabad-Cirrus-clouds-Analysis--2019-2024
 # Faisalabad Cirrus Anomaly Analysis (2019-2024)
 
 This project analyzes **cirrus cloud anomalies** in Faisalabad, Pakistan, using monthly data from Google Earth Engine (GEE).  
